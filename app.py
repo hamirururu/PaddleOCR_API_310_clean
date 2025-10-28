@@ -2,9 +2,9 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from PIL import Image
 import os
-
-import easyocr  # should work now that torch/easyocr are installed in this venv
+import easyocr
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
@@ -15,18 +15,30 @@ MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 _reader = None
 def get_reader():
     global _reader
     if _reader is None:
-        _reader = easyocr.Reader(['en', 'tl'])
+        # Keep it lean: English only, CPU
+        _reader = easyocr.Reader(['en'], gpu=False)
     return _reader
 
 def allowed_file(filename: str) -> bool:
     return bool(filename) and '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def downscale_image(path, max_dim=1600):
+    try:
+        with Image.open(path) as img:
+            img = img.convert('RGB')
+            w, h = img.size
+            scale = min(1.0, max_dim / max(w, h))
+            if scale < 1.0:
+                img = img.resize((int(w*scale), int(h*scale)), Image.LANCZOS)
+            img.save(path, format='JPEG', quality=85)
+    except Exception:
+        pass  # fail-safe: continue even if downscale fails
 
 @app.route('/')
 def serve_home():
@@ -50,6 +62,9 @@ def ocr_image():
     safe_name = secure_filename(image_file.filename)
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], safe_name)
     image_file.save(file_path)
+
+    # downscale to reduce memory during inference
+    downscale_image(file_path, max_dim=1600)
 
     try:
         reader = get_reader()
@@ -83,5 +98,7 @@ def ocr_image():
 @app.errorhandler(413)
 def request_entity_too_large(e):
     return jsonify({"error": "File too large. Max 5 MB"}), 413
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use only for local testing; Render will start via gunicorn
+    app.run(host='0.0.0.0', port=5000, debug=False)
