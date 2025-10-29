@@ -1,9 +1,14 @@
 
-flask
-flask-cors
-easyocr
-opencv-python-headless
-Pillow
-torch==2.9.0
-torchvision==0.24.0
+# Web framework + server
+flask==3.0.3
+gunicorn==23.0.0
+flask-cors==4.0.1
+werkzeug==3.0.4
 
+# OCR stack
+easyocr==1.7.2
+torch==2.3.1
+torchvision==0.18.1
+opencv-python-headless==4.9.0.80
+pillow==10.4.0
+numpy==1.26.4
