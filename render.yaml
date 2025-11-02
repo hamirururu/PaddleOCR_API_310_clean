@@ -3,9 +3,12 @@ services:
     name: paddleocr-api
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --workers=1 --threads=4 --timeout=120 --preload=false"
+    region: singapore
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=1 --threads=4 --timeout=120 --preload
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.14
       - key: WEB_CONCURRENCY
         value: "1"
       - key: PYTHONUNBUFFERED
